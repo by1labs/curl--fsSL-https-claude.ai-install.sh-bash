@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Search Analyzer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f13;
+            color: #e4e4e7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #71717a;
+            margin-bottom: 40px;
+            font-size: 0.95rem;
+        }
+
+        .input-section {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #a1a1aa;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .url-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .url-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: #09090b;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            color: #e4e4e7;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .url-row input:focus {
+            border-color: #818cf8;
+        }
+
+        .url-row input::placeholder {
+            color: #52525b;
+        }
+
+        button {
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .divider {
+            text-align: center;
+            color: #52525b;
+            margin: 16px 0;
+            font-size: 0.85rem;
+        }
+
+        .paste-area {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px 16px;
+            background: #09090b;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            color: #a1a1aa;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            outline: none;
+        }
+
+        .paste-area:focus { border-color: #818cf8; color: #e4e4e7; }
+
+        .paste-help {
+            color: #52525b;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a1a1aa;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border: 3px solid #27272a;
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Results */
+        .results { display: none; }
+        .results.visible { display: block; }
+
+        .overall-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .overall-url {
+            color: #71717a;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            word-break: break-all;
+        }
+
+        .grade-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .grade-A { background: #065f46; color: #34d399; border: 3px solid #34d399; }
+        .grade-B { background: #1e3a5f; color: #60a5fa; border: 3px solid #60a5fa; }
+        .grade-C { background: #713f12; color: #fbbf24; border: 3px solid #fbbf24; }
+        .grade-D { background: #7c2d12; color: #fb923c; border: 3px solid #fb923c; }
+        .grade-F { background: #7f1d1d; color: #f87171; border: 3px solid #f87171; }
+
+        .overall-score {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .overall-label {
+            color: #71717a;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .category-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }
+
+        .cat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .cat-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+
+        .cat-badge {
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #27272a;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.6s ease;
+        }
+
+        .findings {
+            list-style: none;
+            padding: 0;
+        }
+
+        .findings li {
+            padding: 6px 0;
+            font-size: 0.9rem;
+            color: #a1a1aa;
+            border-bottom: 1px solid #1f1f23;
+        }
+
+        .findings li:last-child { border-bottom: none; }
+
+        .findings li::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        .finding-good::before { background: #34d399; }
+        .finding-warn::before { background: #fbbf24; }
+        .finding-bad::before { background: #f87171; }
+        .finding-info::before { background: #60a5fa; }
+
+        .recs-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+        }
+
+        .recs-card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        .rec-item {
+            background: #1c1c24;
+            border-left: 3px solid #818cf8;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: #d4d4d8;
+            line-height: 1.5;
+        }
+
+        .export-row {
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .export-btn {
+            background: #27272a;
+            padding: 10px 24px;
+            font-size: 0.9rem;
+        }
+
+        .export-btn:hover { background: #3f3f46; }
+
+        .error-msg {
+            background: #2d1515;
+            border: 1px solid #7f1d1d;
+            color: #fca5a5;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .error-msg.visible { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Search Analyzer</h1>
+        <p class="subtitle">Check if your website is visible to AI search engines like ChatGPT, Claude, Perplexity & more</p>
+
+        <div class="input-section">
+            <label>Option 1: Enter a URL</label>
+            <div class="url-row">
+                <input type="text" id="urlInput" placeholder="https://yourwebsite.com" />
+                <button id="analyzeUrlBtn" onclick="analyzeFromUrl()">Analyze</button>
+            </div>
+
+            <div class="divider">— or —</div>
+
+            <label>Option 2: Paste your page source code</label>
+            <textarea class="paste-area" id="htmlInput" placeholder="Right-click your website → View Page Source → Select All → Copy → Paste here"></textarea>
+            <p class="paste-help">How to get source: Open your website in Chrome/Edge/Firefox → Right-click anywhere → click "View Page Source" → press Ctrl+A (select all) → Ctrl+C (copy) → paste above</p>
+            <div style="margin-top: 12px; text-align: right;">
+                <button id="analyzeHtmlBtn" onclick="analyzeFromHtml()">Analyze Pasted HTML</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display:none;">
+            <div class="spinner"></div>
+            <div>Analyzing website...</div>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="results" id="results">
+            <div class="overall-card" id="overallCard"></div>
+            <div id="categoriesContainer"></div>
+            <div class="recs-card" id="recsCard"></div>
+            <div class="export-row">
+                <button class="export-btn" onclick="exportJson()">Download JSON Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ── Globals ────────────────────────────────────────────────────────────
+    let lastReport = null;
+
+    const AI_CRAWLERS = [
+        "GPTBot", "ChatGPT-User", "Google-Extended", "Anthropic",
+        "ClaudeBot", "Claude-Web", "PerplexityBot", "Bytespider",
+        "CCBot", "Cohere-ai", "Meta-ExternalAgent", "Amazonbot"
+    ];
+
+    // ── Entry points ──────────────────────────────────────────────────────
+
+    async function analyzeFromUrl() {
+        const urlInput = document.getElementById('urlInput');
+        let url = urlInput.value.trim();
+        if (!url) return;
+        if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
+
+        showLoading(true);
+        hideError();
+
+        try {
+            // Try fetching through public CORS proxies
+            const html = await fetchWithProxy(url);
+            if (!html) {
+                showError(
+                    "Could not fetch that URL due to browser security restrictions (CORS). " +
+                    "Please use Option 2 instead: open your website, right-click → View Page Source → copy all → paste it in the box above."
+                );
+                return;
+            }
+            runAnalysis(url, html);
+        } catch (e) {
+            showError(
+                "Could not fetch that URL. Please use Option 2: open your website in a new tab, " +
+                "right-click → View Page Source → Select All → Copy → paste it in the box above."
+            );
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function analyzeFromHtml() {
+        const html = document.getElementById('htmlInput').value.trim();
+        if (!html) return;
+        const url = document.getElementById('urlInput').value.trim() || 'pasted-source';
+        showLoading(true);
+        hideError();
+        setTimeout(() => {
+            runAnalysis(url, html);
+            showLoading(false);
+        }, 300);
+    }
+
+    async function fetchWithProxy(url) {
+        // Try direct fetch first (works for sites with permissive CORS)
+        try {
+            const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (resp.ok) return await resp.text();
+        } catch {}
+
+        // Try allorigins proxy
+        try {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
+            if (resp.ok) return await resp.text();
+        } catch {}
+
+        return null;
+    }
+
+    // ── Analysis Engine ───────────────────────────────────────────────────
+
+    function runAnalysis(url, html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const results = [
+            analyzeStructuredData(doc, html),
+            analyzeContentStructure(doc),
+            analyzeBrandIdentity(doc, url),
+            analyzeCrawlerAccess(html),
+            analyzeLlmSignals(doc, html),
+        ];
+
+        const report = buildReport(url, results);
+        lastReport = report;
+        renderReport(report);
+    }
+
+    // ── 1. Structured Data (max 30) ──────────────────────────────────────
+
+    function analyzeStructuredData(doc, html) {
+        const findings = [];
+        let score = 0;
+
+        // JSON-LD
+        const jsonldScripts = doc.querySelectorAll('script[type="application/ld+json"]');
+        const types = [];
+        jsonldScripts.forEach(tag => {
+            try {
+                const data = JSON.parse(tag.textContent);
+                if (Array.isArray(data)) data.forEach(d => types.push(d['@type'] || 'Unknown'));
+                else types.push(data['@type'] || 'Unknown');
+            } catch {}
+        });
+
+        if (jsonldScripts.length > 0) {
+            score += 15;
+            findings.push({ text: `Found ${jsonldScripts.length} JSON-LD block(s): ${types.join(', ')}`, type: 'good' });
+        } else {
+            findings.push({ text: 'No JSON-LD structured data found', type: 'bad' });
+        }
+
+        // Microdata
+        const microdata = doc.querySelectorAll('[itemscope]');
+        if (microdata.length > 0) {
+            score += 5;
+            const mTypes = Array.from(microdata).slice(0, 5).map(el => el.getAttribute('itemtype') || 'untyped');
+            findings.push({ text: `Found ${microdata.length} microdata item(s): ${mTypes.join(', ')}`, type: 'good' });
+        }
+
+        // RDFa
+        const rdfa = doc.querySelectorAll('[typeof]');
+        if (rdfa.length > 0) {
+            score += 5;
+            findings.push({ text: `Found ${rdfa.length} RDFa item(s)`, type: 'good' });
+        }
+
+        // OpenGraph
+        const ogTags = doc.querySelectorAll('meta[property^="og:"]');
+        if (ogTags.length > 0) {
+            score += 5;
+            const names = Array.from(ogTags).map(t => t.getAttribute('property'));
+            findings.push({ text: `OpenGraph tags: ${names.join(', ')}`, type: 'good' });
+        } else {
+            findings.push({ text: 'No OpenGraph tags found', type: 'warn' });
+        }
+
+        return { name: 'Structured Data', score: Math.min(score, 30), max_score: 30, findings };
+    }
+
+    // ── 2. Content Structure (max 25) ────────────────────────────────────
+
+    function analyzeContentStructure(doc) {
+        const findings = [];
+        let score = 0;
+
+        // Headings
+        const headings = {};
+        for (let i = 1; i <= 6; i++) {
+            const tags = doc.querySelectorAll(`h${i}`);
+            if (tags.length) headings[`h${i}`] = tags.length;
+        }
+
+        if (Object.keys(headings).length > 0) {
+            findings.push({ text: `Heading structure: ${JSON.stringify(headings)}`, type: 'info' });
+            if (headings.h1) {
+                score += 5;
+                const h1Text = doc.querySelector('h1').textContent.trim().slice(0, 100);
+                findings.push({ text: `H1: "${h1Text}"`, type: 'good' });
+            }
+            if (headings.h2) score += 3;
+        } else {
+            findings.push({ text: 'No heading structure found — poor for AI parsing', type: 'bad' });
+        }
+
+        // Lists
+        const ul = doc.querySelectorAll('ul').length;
+        const ol = doc.querySelectorAll('ol').length;
+        if (ul + ol > 0) {
+            score += 3;
+            findings.push({ text: `Lists found: ${ul} unordered, ${ol} ordered`, type: 'good' });
+        }
+
+        // Tables
+        const tables = doc.querySelectorAll('table').length;
+        if (tables > 0) {
+            score += 2;
+            findings.push({ text: `Tables found: ${tables}`, type: 'good' });
+        }
+
+        // FAQ patterns
+        let faqCount = 0;
+        doc.querySelectorAll('h2, h3, h4, summary, dt').forEach(tag => {
+            const text = tag.textContent.trim().toLowerCase();
+            if (text.endsWith('?') || /^(how|what|why|when|where|who|can|does|is)\b/.test(text)) faqCount++;
+        });
+
+        if (faqCount >= 3) {
+            score += 5;
+            findings.push({ text: `FAQ-like content detected (${faqCount} question headings)`, type: 'good' });
+        } else if (faqCount > 0) {
+            score += 2;
+            findings.push({ text: `Some question-style headings found (${faqCount})`, type: 'info' });
+        } else {
+            findings.push({ text: 'No FAQ-style content detected', type: 'warn' });
+        }
+
+        // Word count
+        const bodyText = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+        const wordCount = bodyText.split(/\s+/).filter(w => w.length > 0).length;
+        if (wordCount > 500) {
+            score += 4;
+            findings.push({ text: `Good content depth: ~${wordCount} words`, type: 'good' });
+        } else if (wordCount > 200) {
+            score += 2;
+            findings.push({ text: `Moderate content: ~${wordCount} words`, type: 'info' });
+        } else {
+            findings.push({ text: `Thin content: ~${wordCount} words — LLMs may not have enough to reference`, type: 'bad' });
+        }
+
+        // Definitions
+        const defs = doc.querySelectorAll('dl, dfn').length;
+        if (defs > 0) {
+            score += 3;
+            findings.push({ text: `Definition markup found (${defs} elements)`, type: 'good' });
+        }
+
+        return { name: 'Content Structure', score: Math.min(score, 25), max_score: 25, findings };
+    }
+
+    // ── 3. Brand Identity (max 15) ───────────────────────────────────────
+
+    function analyzeBrandIdentity(doc, url) {
+        const findings = [];
+        let score = 0;
+
+        // Title
+        const title = doc.querySelector('title');
+        if (title && title.textContent.trim()) {
+            score += 3;
+            findings.push({ text: `Title: "${title.textContent.trim().slice(0, 120)}"`, type: 'good' });
+        } else {
+            findings.push({ text: 'No <title> tag found', type: 'bad' });
+        }
+
+        // Meta description
+        const metaDesc = doc.querySelector('meta[name="description"]');
+        if (metaDesc && metaDesc.getAttribute('content')?.trim()) {
+            const desc = metaDesc.getAttribute('content').trim();
+            score += 4;
+            findings.push({ text: `Meta description (${desc.length} chars): "${desc.slice(0, 150)}"`, type: 'good' });
+            if (desc.length < 50) findings.push({ text: 'Meta description is very short', type: 'warn' });
+            else if (desc.length > 160) findings.push({ text: 'Meta description is long — may get truncated', type: 'warn' });
+        } else {
+            findings.push({ text: 'No meta description — LLMs rely on this for summarization', type: 'bad' });
+        }
+
+        // Canonical
+        const canonical = doc.querySelector('link[rel="canonical"]');
+        if (canonical) {
+            score += 2;
+            findings.push({ text: `Canonical URL set: ${canonical.getAttribute('href')?.slice(0, 100)}`, type: 'good' });
+        }
+
+        // Author
+        const author = doc.querySelector('meta[name="author"]');
+        if (author && author.getAttribute('content')) {
+            score += 2;
+            findings.push({ text: `Author: ${author.getAttribute('content')}`, type: 'good' });
+        }
+
+        // OG site name
+        const ogSite = doc.querySelector('meta[property="og:site_name"]');
+        if (ogSite && ogSite.getAttribute('content')) {
+            score += 2;
+            findings.push({ text: `OG site name: ${ogSite.getAttribute('content')}`, type: 'good' });
+        }
+
+        // About page
+        const aboutLink = doc.querySelector('a[href*="/about"], a[href*="/who-we-are"], a[href*="/company"]');
+        if (aboutLink) {
+            score += 2;
+            findings.push({ text: 'About/Company page linked', type: 'good' });
+        } else {
+            findings.push({ text: 'No visible About page link', type: 'warn' });
+        }
+
+        return { name: 'Brand Identity', score: Math.min(score, 15), max_score: 15, findings };
+    }
+
+    // ── 4. AI Crawler Access (max 15) ────────────────────────────────────
+
+    function analyzeCrawlerAccess(html) {
+        const findings = [];
+        let score = 0;
+
+        // Since we can't fetch robots.txt from the browser, check for meta robots
+        // and inform the user about robots.txt
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        // Meta robots
+        const metaRobots = doc.querySelector('meta[name="robots"]');
+        if (metaRobots) {
+            const content = (metaRobots.getAttribute('content') || '').toLowerCase();
+            if (content.includes('noindex')) {
+                findings.push({ text: 'META ROBOTS: noindex set — page will NOT appear in AI search', type: 'bad' });
+            } else if (content.includes('nofollow')) {
+                score += 4;
+                findings.push({ text: 'META ROBOTS: nofollow — crawlers won\'t follow links', type: 'warn' });
+            } else {
+                score += 7;
+                findings.push({ text: `Meta robots: ${content} (not restrictive)`, type: 'good' });
+            }
+        } else {
+            score += 7;
+            findings.push({ text: 'No restrictive meta robots tags', type: 'good' });
+        }
+
+        // Check for AI-specific meta tags
+        let aiMetaFound = false;
+        AI_CRAWLERS.forEach(crawler => {
+            const meta = doc.querySelector(`meta[name="${crawler}" i]`);
+            if (meta) {
+                aiMetaFound = true;
+                const content = meta.getAttribute('content') || '';
+                if (content.toLowerCase().includes('noindex') || content.toLowerCase().includes('nofollow')) {
+                    findings.push({ text: `${crawler} specifically BLOCKED via meta tag`, type: 'bad' });
+                } else {
+                    score += 1;
+                    findings.push({ text: `${crawler} meta tag: ${content}`, type: 'info' });
+                }
+            }
+        });
+
+        if (!aiMetaFound) {
+            score += 5;
+            findings.push({ text: 'No AI-specific blocking meta tags found', type: 'good' });
+        }
+
+        // Note about robots.txt
+        findings.push({ text: 'Note: robots.txt cannot be checked from the browser — check manually at yoursite.com/robots.txt for GPTBot, ClaudeBot, PerplexityBot blocks', type: 'info' });
+
+        return { name: 'AI Crawler Access', score: Math.min(score, 15), max_score: 15, findings };
+    }
+
+    // ── 5. LLM-Friendly Signals (max 15) ────────────────────────────────
+
+    function analyzeLlmSignals(doc, html) {
+        const findings = [];
+        let score = 0;
+
+        // Semantic HTML
+        const semanticTags = {};
+        ['article', 'main', 'section', 'nav', 'aside', 'header', 'footer'].forEach(tag => {
+            const count = doc.querySelectorAll(tag).length;
+            if (count) semanticTags[tag] = count;
+        });
+
+        if (Object.keys(semanticTags).length > 0) {
+            score += 4;
+            findings.push({ text: `Semantic HTML: ${JSON.stringify(semanticTags)}`, type: 'good' });
+        } else {
+            findings.push({ text: 'No semantic HTML tags (article, main, section) — hurts AI content extraction', type: 'bad' });
+        }
+
+        // Aria labels
+        const ariaCount = doc.querySelectorAll('[aria-label]').length;
+        if (ariaCount > 3) {
+            score += 2;
+            findings.push({ text: `Good accessibility: ${ariaCount} aria-labels`, type: 'good' });
+        }
+
+        // Text to HTML ratio
+        const textLen = (doc.body?.textContent || '').replace(/\s+/g, '').length;
+        const htmlLen = html.length;
+        const ratio = htmlLen > 0 ? textLen / htmlLen : 0;
+        if (ratio > 0.25) {
+            score += 3;
+            findings.push({ text: `Good text/HTML ratio: ${(ratio * 100).toFixed(1)}%`, type: 'good' });
+        } else if (ratio > 0.1) {
+            score += 1;
+            findings.push({ text: `Moderate text/HTML ratio: ${(ratio * 100).toFixed(1)}%`, type: 'info' });
+        } else {
+            findings.push({ text: `Low text/HTML ratio: ${(ratio * 100).toFixed(1)}% — heavy markup`, type: 'warn' });
+        }
+
+        // Script heaviness
+        const scripts = doc.querySelectorAll('script').length;
+        const textContent = (doc.body?.textContent || '').trim();
+        if (scripts > 20 && textContent.length < 500) {
+            findings.push({ text: `Warning: ${scripts} scripts with little visible content — AI crawlers may see empty page`, type: 'bad' });
+        } else if (scripts > 15) {
+            findings.push({ text: `${scripts} script tags detected — ensure content is server-rendered`, type: 'warn' });
+        }
+
+        // Noscript
+        const noscript = doc.querySelector('noscript');
+        if (noscript) {
+            score += 1;
+            findings.push({ text: 'Noscript fallback present — good for crawlers without JS', type: 'good' });
+        }
+
+        // lang attribute
+        const lang = doc.documentElement.getAttribute('lang');
+        if (lang) {
+            score += 2;
+            findings.push({ text: `Language declared: ${lang}`, type: 'good' });
+        } else {
+            findings.push({ text: 'No lang attribute on <html> — helps LLMs understand content language', type: 'warn' });
+        }
+
+        // Note about llms.txt and sitemap
+        findings.push({ text: 'Tip: Check if you have /llms.txt and /sitemap.xml — these help AI crawlers significantly', type: 'info' });
+
+        return { name: 'LLM-Friendly Signals', score: Math.min(score, 15), max_score: 15, findings };
+    }
+
+    // ── Report Builder ───────────────────────────────────────────────────
+
+    function buildReport(url, results) {
+        const totalScore = results.reduce((s, r) => s + r.score, 0);
+        const totalMax = results.reduce((s, r) => s + r.max_score, 0);
+        const pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0;
+
+        return {
+            analyzer: 'AI Search Analyzer v1.0',
+            analyzed_at: new Date().toISOString(),
+            url,
+            overall: { score: totalScore, max_score: totalMax, percentage: Math.round(pct * 10) / 10, grade: getGrade(pct) },
+            categories: results.map(r => ({
+                ...r,
+                percentage: Math.round(r.score / r.max_score * 1000) / 10,
+                grade: getGrade(r.score / r.max_score * 100),
+            })),
+            recommendations: getRecommendations(results),
+            ai_crawlers_checked: ["GPTBot", "ChatGPT-User", "Google-Extended", "ClaudeBot", "PerplexityBot", "CCBot", "Cohere-ai", "Amazonbot"],
+        };
+    }
+
+    function getGrade(pct) {
+        if (pct >= 90) return 'A';
+        if (pct >= 80) return 'B';
+        if (pct >= 65) return 'C';
+        if (pct >= 50) return 'D';
+        return 'F';
+    }
+
+    function getRecommendations(results) {
+        const recs = [];
+        results.forEach(r => {
+            const pct = r.score / r.max_score * 100;
+            if (r.name === 'Structured Data' && pct < 50)
+                recs.push('Add JSON-LD structured data (Schema.org) to your pages. Include Organization, WebSite, and page-specific types like Article, Product, or FAQ. This is one of the strongest signals for AI search engines.');
+            if (r.name === 'Structured Data' && pct >= 50 && pct < 80)
+                recs.push('Expand your structured data. Add FAQ schema for Q&A content and ensure all key entities have JSON-LD.');
+            if (r.name === 'Content Structure' && pct < 50)
+                recs.push('Improve content structure: use clear headings (H1 > H2 > H3), add FAQ sections, use lists and tables. LLMs extract info most reliably from well-structured pages.');
+            if (r.name === 'Brand Identity' && pct < 50)
+                recs.push('Strengthen brand signals: add a meta description (120-155 chars), set og:site_name, add author metadata, and link to an About page.');
+            if (r.name === 'AI Crawler Access' && pct < 60)
+                recs.push('Check your robots.txt — you may be blocking AI crawlers like GPTBot, ClaudeBot, PerplexityBot. Remove blocks if you want AI search visibility.');
+            if (r.name === 'LLM-Friendly Signals' && pct < 50)
+                recs.push('Use semantic HTML (article, main, section), add a llms.txt file, create a sitemap.xml, and set the lang attribute on your <html> tag.');
+        });
+        if (recs.length === 0) recs.push('Your site scores well! Keep maintaining structured data, clear content, and open crawler access.');
+        return recs;
+    }
+
+    // ── Rendering ────────────────────────────────────────────────────────
+
+    function renderReport(report) {
+        const r = report;
+        const o = r.overall;
+
+        // Overall
+        document.getElementById('overallCard').innerHTML = `
+            <div class="overall-url">${escHtml(r.url)}</div>
+            <div class="grade-circle grade-${o.grade}">${o.grade}</div>
+            <div class="overall-score">${o.percentage}% — ${o.score}/${o.max_score} points</div>
+            <div class="overall-label">AI Search Visibility Score</div>
+        `;
+
+        // Categories
+        const catContainer = document.getElementById('categoriesContainer');
+        catContainer.innerHTML = '';
+        r.categories.forEach(cat => {
+            const color = gradeColor(cat.grade);
+            const findingsHtml = cat.findings.map(f => {
+                const cls = `finding-${f.type}`;
+                return `<li class="${cls}">${escHtml(f.text)}</li>`;
+            }).join('');
+
+            catContainer.innerHTML += `
+                <div class="category-card">
+                    <div class="cat-header">
+                        <span class="cat-name">${escHtml(cat.name)}</span>
+                        <span class="cat-badge grade-${cat.grade}">${cat.grade} · ${cat.score}/${cat.max_score}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:${cat.percentage}%; background:${color};"></div>
+                    </div>
+                    <ul class="findings">${findingsHtml}</ul>
+                </div>
+            `;
+        });
+
+        // Recommendations
+        const recsHtml = r.recommendations.map(rec => `<div class="rec-item">${escHtml(rec)}</div>`).join('');
+        document.getElementById('recsCard').innerHTML = `<h3>Recommendations</h3>${recsHtml}`;
+
+        document.getElementById('results').classList.add('visible');
+        document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function gradeColor(grade) {
+        return { A: '#34d399', B: '#60a5fa', C: '#fbbf24', D: '#fb923c', F: '#f87171' }[grade] || '#71717a';
+    }
+
+    function escHtml(str) {
+        const el = document.createElement('span');
+        el.textContent = str;
+        return el.innerHTML;
+    }
+
+    // ── UI Helpers ───────────────────────────────────────────────────────
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('results').classList.remove('visible');
+        document.getElementById('analyzeUrlBtn').disabled = show;
+        document.getElementById('analyzeHtmlBtn').disabled = show;
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('errorMsg');
+        el.textContent = msg;
+        el.classList.add('visible');
+    }
+
+    function hideError() {
+        document.getElementById('errorMsg').classList.remove('visible');
+    }
+
+    function exportJson() {
+        if (!lastReport) return;
+        // Remove finding 'type' property for clean export
+        const clean = JSON.parse(JSON.stringify(lastReport));
+        clean.categories.forEach(cat => {
+            cat.findings = cat.findings.map(f => f.text || f);
+        });
+        const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `ai-search-report-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+    }
+
+    // Allow Enter key on URL input
+    document.getElementById('urlInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') analyzeFromUrl();
+    });
+    </script>
+</body>
+</html>
