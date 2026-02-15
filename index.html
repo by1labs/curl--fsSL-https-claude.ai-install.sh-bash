@@ -310,6 +310,92 @@
         }
 
         .error-msg.visible { display: block; }
+
+        .fallback-box {
+            display: none;
+            background: #1a1a2e;
+            border: 2px solid #818cf8;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .fallback-box.visible { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .fallback-box h3 {
+            color: #818cf8;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+        }
+
+        .fallback-steps {
+            list-style: none;
+            padding: 0;
+        }
+
+        .fallback-steps li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            color: #d4d4d8;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #27272a;
+        }
+
+        .fallback-steps li:last-child { border-bottom: none; }
+
+        .step-num {
+            background: #6366f1;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .fallback-box .open-source-btn {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .fallback-box .open-source-btn:hover { opacity: 0.9; }
+
+        .fallback-paste-area {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px 16px;
+            background: #09090b;
+            border: 2px solid #818cf8;
+            border-radius: 8px;
+            color: #e4e4e7;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            outline: none;
+            margin-top: 12px;
+        }
+
+        .fallback-paste-area:focus { border-color: #a78bfa; }
+
+        .fallback-paste-area::placeholder { color: #52525b; }
     </style>
 </head>
 <body>
@@ -341,6 +427,20 @@
 
         <div class="error-msg" id="errorMsg"></div>
 
+        <div class="fallback-box" id="fallbackBox">
+            <h3>Almost there! Just paste your page source below:</h3>
+            <ol class="fallback-steps">
+                <li><span class="step-num">1</span><span>Click this button to open your website: <a class="open-source-btn" id="fallbackOpenBtn" href="#" target="_blank" rel="noopener">Open Your Website</a></span></li>
+                <li><span class="step-num">2</span><span>On that page, right-click anywhere and choose <strong>"View Page Source"</strong> (or press <strong>Ctrl+U</strong> / <strong>Cmd+Option+U</strong> on Mac)</span></li>
+                <li><span class="step-num">3</span><span>Press <strong>Ctrl+A</strong> to select all, then <strong>Ctrl+C</strong> to copy</span></li>
+                <li><span class="step-num">4</span><span>Paste it in the box below and click <strong>Analyze</strong></span></li>
+            </ol>
+            <textarea class="fallback-paste-area" id="fallbackPasteArea" placeholder="Paste your page source code here..."></textarea>
+            <div style="margin-top: 12px; text-align: right;">
+                <button onclick="analyzeFromFallback()">Analyze</button>
+            </div>
+        </div>
+
         <div class="results" id="results">
             <div class="overall-card" id="overallCard"></div>
             <div id="categoriesContainer"></div>
@@ -371,23 +471,18 @@
 
         showLoading(true);
         hideError();
+        hideFallback();
 
         try {
             // Try fetching through public CORS proxies
             const html = await fetchWithProxy(url);
             if (!html) {
-                showError(
-                    "Could not fetch that URL (the website blocks cross-origin requests). " +
-                    "No worries — use Option 2 instead: open your website in a new tab → right-click → View Page Source → Ctrl+A (select all) → Ctrl+C (copy) → paste it in the box below."
-                );
+                showFetchFallback(url);
                 return;
             }
             runAnalysis(url, html);
         } catch (e) {
-            showError(
-                "Could not fetch that URL. Please use Option 2: open your website in a new tab, " +
-                "right-click → View Page Source → Select All → Copy → paste it in the box above."
-            );
+            showFetchFallback(url);
         } finally {
             showLoading(false);
         }
@@ -410,28 +505,64 @@
 
         // Try direct fetch first (works for sites with permissive CORS)
         try {
-            const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-            if (resp.ok) return await resp.text();
+            const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+            if (resp.ok) {
+                const text = await resp.text();
+                if (text && text.includes('<')) return text;
+            }
         } catch {}
 
-        // List of CORS proxies to try in order
+        // List of CORS proxies to try in order (most reliable first)
         const proxies = [
+            `https://corsproxy.io/?url=${encoded}`,
             `https://api.allorigins.win/raw?url=${encoded}`,
-            `https://corsproxy.io/?${encoded}`,
             `https://api.codetabs.com/v1/proxy?quest=${encoded}`,
+            `https://corsproxy.org/?${encoded}`,
         ];
 
         for (const proxyUrl of proxies) {
             try {
-                const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+                const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
                 if (resp.ok) {
                     const text = await resp.text();
-                    if (text && text.length > 100) return text;
+                    if (text && text.length > 200 && text.includes('<')) return text;
                 }
             } catch {}
         }
 
         return null;
+    }
+
+    // ── Fallback flow when URL fetch fails ─────────────────────────────────
+
+    let fallbackUrl = '';
+
+    function showFetchFallback(url) {
+        showLoading(false);
+        hideError();
+        fallbackUrl = url;
+        const box = document.getElementById('fallbackBox');
+        const btn = document.getElementById('fallbackOpenBtn');
+        btn.href = url;
+        btn.textContent = 'Open ' + new URL(url).hostname;
+        box.classList.add('visible');
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('fallbackPasteArea').focus();
+    }
+
+    function hideFallback() {
+        document.getElementById('fallbackBox').classList.remove('visible');
+    }
+
+    function analyzeFromFallback() {
+        const html = document.getElementById('fallbackPasteArea').value.trim();
+        if (!html) return;
+        hideFallback();
+        showLoading(true);
+        setTimeout(() => {
+            runAnalysis(fallbackUrl || 'pasted-source', html);
+            showLoading(false);
+        }, 300);
     }
 
     // ── Analysis Engine ───────────────────────────────────────────────────
