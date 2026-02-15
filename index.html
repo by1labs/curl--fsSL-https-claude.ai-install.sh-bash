@@ -377,8 +377,8 @@
             const html = await fetchWithProxy(url);
             if (!html) {
                 showError(
-                    "Could not fetch that URL due to browser security restrictions (CORS). " +
-                    "Please use Option 2 instead: open your website, right-click → View Page Source → copy all → paste it in the box above."
+                    "Could not fetch that URL (the website blocks cross-origin requests). " +
+                    "No worries — use Option 2 instead: open your website in a new tab → right-click → View Page Source → Ctrl+A (select all) → Ctrl+C (copy) → paste it in the box below."
                 );
                 return;
             }
@@ -406,18 +406,30 @@
     }
 
     async function fetchWithProxy(url) {
+        const encoded = encodeURIComponent(url);
+
         // Try direct fetch first (works for sites with permissive CORS)
         try {
-            const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (resp.ok) return await resp.text();
         } catch {}
 
-        // Try allorigins proxy
-        try {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-            if (resp.ok) return await resp.text();
-        } catch {}
+        // List of CORS proxies to try in order
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encoded}`,
+            `https://corsproxy.io/?${encoded}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encoded}`,
+        ];
+
+        for (const proxyUrl of proxies) {
+            try {
+                const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+                if (resp.ok) {
+                    const text = await resp.text();
+                    if (text && text.length > 100) return text;
+                }
+            } catch {}
+        }
 
         return null;
     }
